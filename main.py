@@ -9,12 +9,13 @@ from translator import Translator
 from ui import LiveSubtitleUI
 
 class Orchestrator:
-    def __init__(self):
+    def __init__(self, cli_mode=False):
         # Configuration
         self.sample_rate = 16000
         self.whisper_model_size = "tiny"  # Use 'tiny' or 'base' for low latency
         self.chunk_duration = 0.8        # Decreased for faster word-by-word feel
         self.max_buffer_duration = 10.0  # Allow longer sentences
+        self.cli_mode = cli_mode
         
         # Performance/Latency: Use GPU if available
         import torch
@@ -43,11 +44,20 @@ class Orchestrator:
             
         self.audio = AudioStream(sample_rate=self.sample_rate)
         
-        # UI is initialized but not yet started
-        self.ui = LiveSubtitleUI(
-            on_start=self.start_processing, 
-            on_stop=self.stop_processing
-        )
+        # Initialize UI only if not in CLI mode
+        if not self.cli_mode:
+            try:
+                self.ui = LiveSubtitleUI(
+                    on_start=self.start_processing, 
+                    on_stop=self.stop_processing
+                )
+            except Exception as e:
+                print(f"Failed to initialize GUI: {e}. Falling back to CLI mode.")
+                self.cli_mode = True
+        
+        if self.cli_mode:
+            self.ui = None
+            print("Running in CLI mode (Terminal Output).")
         
         self.is_running = False
         self.process_thread = None
@@ -61,7 +71,8 @@ class Orchestrator:
         """Callback to start audio streaming and processing thread."""
         if not self.is_running:
             self.is_running = True
-            self.ui.set_status_running()
+            if self.ui:
+                self.ui.set_status_running()
             self.audio.start()
             self.process_thread = threading.Thread(target=self._process_loop, daemon=True)
             self.process_thread.start()
@@ -72,7 +83,8 @@ class Orchestrator:
         if self.is_running:
             self.is_running = False
             self.audio.stop()
-            self.ui.set_status_stopped()
+            if self.ui:
+                self.ui.set_status_stopped()
             print("Processing loop stopped.")
 
     def _process_loop(self):
@@ -123,7 +135,12 @@ class Orchestrator:
                         display_text = f"{history_str}\n[{detected_lang}] {text}"
                     else:
                         display_text = f"[{detected_lang}] {text}"
-                    self.ui.update_original(display_text)
+                    if self.ui:
+                        self.ui.update_original(display_text)
+                    else:
+                        # In CLI mode, we print to console
+                        # Use \r to overwrite same line for live feel or just print
+                        print(f"\r[Trans] {text[:60]}...", end="", flush=True)
                     
                     # Perform Translation to Bangla
                     # Optimization: Only translate when text seems stable or finished
@@ -132,12 +149,15 @@ class Orchestrator:
                     if is_finished or len(text.split()) >= 3: # Reduced from 5 to 3 for more real-time feel
                         bangla_text = self.translator.translate(text, src_lang=detected_lang)
                         
-                        history_trans_str = "\n".join(self.translation_history)
-                        if history_trans_str:
-                            display_trans = f"{history_trans_str}\n{bangla_text}"
+                        if self.ui:
+                            history_trans_str = "\n".join(self.translation_history)
+                            if history_trans_str:
+                                display_trans = f"{history_trans_str}\n{bangla_text}"
+                            else:
+                                display_trans = bangla_text
+                            self.ui.update_translation(display_trans)
                         else:
-                            display_trans = bangla_text
-                        self.ui.update_translation(display_trans)
+                            print(f"\r[Trans] {text}\n[Bangla] {bangla_text}")
                     
                     # If the text seems finished, move to history
                     if is_finished:
@@ -147,10 +167,14 @@ class Orchestrator:
                         self.translation_history.append(bangla_text)
                         
                         # Update UI one last time for this sentence
-                        history_str = "\n".join(self.transcription_history)
-                        self.ui.update_original(history_str)
-                        history_trans_str = "\n".join(self.translation_history)
-                        self.ui.update_translation(history_trans_str)
+                        if self.ui:
+                            history_str = "\n".join(self.transcription_history)
+                            self.ui.update_original(history_str)
+                            history_trans_str = "\n".join(self.translation_history)
+                            self.ui.update_translation(history_trans_str)
+                        else:
+                            # Already printed above, just ensure a new line
+                            pass
 
                         # Limit history
                         if len(self.transcription_history) > self.max_history_lines:
@@ -169,10 +193,32 @@ class Orchestrator:
             time.sleep(0.01)
 
     def run(self):
-        """Starts the main UI loop."""
-        print("Application ready. Use UI buttons to start/stop.")
-        self.ui.run()
+        """Starts the main application (GUI or CLI)."""
+        if self.cli_mode:
+            print("\n" + "=" * 50)
+            print("CLI Mode: Translation active. Press Ctrl+C to stop.")
+            print("=" * 50 + "\n")
+            self.start_processing()
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                self.stop_processing()
+                print("\nExiting...")
+        else:
+            print("Application ready. Use UI buttons to start/stop.")
+            try:
+                self.ui.run()
+            except Exception as e:
+                print(f"GUI crashed: {e}. Switching to CLI mode.")
+                self.cli_mode = True
+                self.run()
 
 if __name__ == "__main__":
-    app = Orchestrator()
+    import argparse
+    parser = argparse.ArgumentParser(description="Real-Time Translation System")
+    parser.add_argument("--cli", action="store_true", help="Run in CLI mode (terminal output) instead of GUI")
+    args = parser.parse_args()
+    
+    app = Orchestrator(cli_mode=args.cli)
     app.run()
