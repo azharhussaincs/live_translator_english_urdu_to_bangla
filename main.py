@@ -121,7 +121,7 @@ class Orchestrator:
                     time.sleep(0.1)
                     continue
 
-                # Perform Speech-To-Text with language bias
+                # Perform Speech-To-Text with language detection first
                 text, detected_lang = self.stt.transcribe(
                     audio_data, 
                     language=self.forced_language,
@@ -130,11 +130,16 @@ class Orchestrator:
                 
                 # Hallucination Filter: Filter out common Whisper-generated filler phrases
                 # during low-confidence or silent segments.
-                hallucination_phrases = ["thank you", "thank you very much", "thank you for watching", "so...", "yeah", "yeah.", ".", "so", "good afternoon"]
-                if text.lower().strip() in hallucination_phrases:
-                    # If the text is just a common hallucination, we check the RMS again.
-                    # If RMS is low, we ignore it.
-                    if rms < 0.02: # Only allow these common phrases if audio is clearly louder than baseline
+                # Added more common hallucinations reported by the user and from experience.
+                hallucination_phrases = [
+                    "thank you", "thank you.", "thank you very much", "thank you for watching", 
+                    "so...", "yeah", "yeah.", ".", "so", "good afternoon", "you", "the", "a", "i",
+                    "subscribe", "watching", "bye", "goodbye", "hello", "hello."
+                ]
+                if text.lower().strip() in hallucination_phrases or len(text.strip()) <= 1:
+                    # If the text is just a common hallucination or too short (like single letters),
+                    # we check the RMS again.
+                    if rms < 0.025: # More aggressive filtering for low-volume background noise
                         text = ""
                 
                 if text and text != last_text:
