@@ -12,17 +12,19 @@ class Orchestrator:
     def __init__(self, cli_mode=False):
         # Configuration
         self.sample_rate = 16000
-        self.whisper_model_size = "base"  # Changed from 'tiny' for better accuracy. 'small' may fit on 2GB with int8.
+        self.whisper_model_size = "tiny"  # Reverted to 'tiny' as requested
         self.chunk_duration = 0.8        # Decreased for faster word-by-word feel
         self.max_buffer_duration = 10.0  # Allow longer sentences
         self.cli_mode = cli_mode
         
-        # Performance/Latency: Use GPU if available
+        # Performance/Latency: Force CPU if requested, otherwise check GPU
         import torch
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # User requested CPU, so we default to it. 
+        # Alternatively, let it check, but user specifically said "gpu not working rest same cpu"
+        self.device = "cpu"
         
         # 930 MX (Maxwell) supports float16, but int8_float16 or int8 is better for 2GB VRAM
-        self.compute_type = "int8_float16" if self.device == "cuda" else "int8"
+        self.compute_type = "int8" # "int8" is best for CPU
         
         # Memory management: 2GB is tight for both Whisper and NLLB on GPU.
         # We can try both on GPU, or keep Whisper on CPU if VRAM is exceeded.
