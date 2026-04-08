@@ -1,0 +1,7 @@
+faster-whisper
+transformers
+torch
+sounddevice
+numpy
+streamlit
+sentencepiece
