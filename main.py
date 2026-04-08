@@ -115,7 +115,7 @@ class Orchestrator:
                 
                 # Pre-check for silence to avoid sending empty/noisy audio to Whisper
                 rms = np.sqrt(np.mean(audio_data**2))
-                if rms < 0.008:  # Slightly increased from 0.005 to filter very faint noise
+                if rms < 0.012:  # Re-increased from 0.008 to 0.012 to filter more ambient noise
                     if len(audio_buffer) > chunks_per_second * 2: # Clear if silent for > 2s
                          audio_buffer = []
                     time.sleep(0.1)
@@ -127,6 +127,15 @@ class Orchestrator:
                     language=self.forced_language,
                     initial_prompt=self.initial_prompt
                 )
+                
+                # Hallucination Filter: Filter out common Whisper-generated filler phrases
+                # during low-confidence or silent segments.
+                hallucination_phrases = ["thank you", "thank you very much", "thank you for watching", "so...", "yeah", "yeah.", ".", "so", "good afternoon"]
+                if text.lower().strip() in hallucination_phrases:
+                    # If the text is just a common hallucination, we check the RMS again.
+                    # If RMS is low, we ignore it.
+                    if rms < 0.02: # Only allow these common phrases if audio is clearly louder than baseline
+                        text = ""
                 
                 if text and text != last_text:
                     # Update UI with current history + live text

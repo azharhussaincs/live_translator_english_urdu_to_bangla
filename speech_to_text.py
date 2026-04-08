@@ -65,12 +65,13 @@ class SpeechToText:
             language=language,
             initial_prompt=prompt,
             vad_filter=True,
-            no_speech_threshold=0.6, # Re-increased to 0.6 to reduce hallucinations
+            no_speech_threshold=0.7, # Re-increased to 0.7 for even stricter filtering
             log_prob_threshold=-1.0, 
             vad_parameters=dict(
-                min_silence_duration_ms=800, # Increased for better phrase detection
-                threshold=0.45, # Slightly higher than 0.4 for better noise rejection
-                min_speech_duration_ms=100 
+                min_silence_duration_ms=800, # Better for waiting out pauses
+                threshold=0.55, # Increased to 0.55 to be more selective of actual speech
+                min_speech_duration_ms=250, # Increased from 100 to 250 to ignore short bursts of noise
+                speech_pad_ms=200
             )
         )
         text = " ".join([segment.text for segment in segments])
