@@ -24,7 +24,8 @@ class Orchestrator:
         # Language Optimization: Specifically for Urdu/English mix (Pakistani English style)
         self.forced_language = None      # 'ur' or 'en' if you want to force it
         # Prompt should be words, not sentences, to avoid hallucinations repeating them
-        self.initial_prompt = "English, Urdu, Pakistani style, Hinglish, translation, lecture, speech, Hello, welcome guys."
+        # Removed specific greetings to avoid hallucinations when silent
+        self.initial_prompt = "English, Urdu, Pakistani style, Hinglish, translation, lecture, speech."
         
         # Inform user about initial setup
         print("-" * 50)
@@ -102,7 +103,7 @@ class Orchestrator:
                 
                 # Pre-check for silence to avoid sending empty/noisy audio to Whisper
                 rms = np.sqrt(np.mean(audio_data**2))
-                if rms < 0.005:  # Lowered back to 0.005 to be more sensitive to quiet speech
+                if rms < 0.008:  # Slightly increased from 0.005 to filter very faint noise
                     if len(audio_buffer) > chunks_per_second * 2: # Clear if silent for > 2s
                          audio_buffer = []
                     time.sleep(0.1)
