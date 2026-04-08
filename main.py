@@ -102,8 +102,8 @@ class Orchestrator:
                 
                 # Pre-check for silence to avoid sending empty/noisy audio to Whisper
                 rms = np.sqrt(np.mean(audio_data**2))
-                if rms < 0.01:  # Increased threshold to 0.01 to ignore more background noise
-                    if len(audio_buffer) > chunks_per_second * 1.5: # Clear if silent for > 1.5s
+                if rms < 0.005:  # Lowered back to 0.005 to be more sensitive to quiet speech
+                    if len(audio_buffer) > chunks_per_second * 2: # Clear if silent for > 2s
                          audio_buffer = []
                     time.sleep(0.1)
                     continue
