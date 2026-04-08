@@ -67,6 +67,7 @@ class SpeechToText:
             vad_filter=True,
             no_speech_threshold=0.6, # Lowered from 0.8 to 0.6 to increase capture sensitivity
             log_prob_threshold=-1.0, 
+            condition_on_previous_text=False, # Disable to reduce hallucinations during repetitive audio or silence
             vad_parameters=dict(
                 min_silence_duration_ms=1000, # Longer silence required to stop segment
                 threshold=0.45, # Lowered from 0.6 to 0.45 to better detect speech

@@ -12,7 +12,7 @@ class Orchestrator:
     def __init__(self, cli_mode=False):
         # Configuration
         self.sample_rate = 16000
-        self.whisper_model_size = "tiny"  # Use 'tiny' or 'base' for low latency
+        self.whisper_model_size = "base"  # Changed from 'tiny' for better accuracy. 'small' may fit on 2GB with int8.
         self.chunk_duration = 0.8        # Decreased for faster word-by-word feel
         self.max_buffer_duration = 10.0  # Allow longer sentences
         self.cli_mode = cli_mode
@@ -20,7 +20,14 @@ class Orchestrator:
         # Performance/Latency: Use GPU if available
         import torch
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.compute_type = "float16" if self.device == "cuda" else "int8"
+        
+        # 930 MX (Maxwell) supports float16, but int8_float16 or int8 is better for 2GB VRAM
+        self.compute_type = "int8_float16" if self.device == "cuda" else "int8"
+        
+        # Memory management: 2GB is tight for both Whisper and NLLB on GPU.
+        # We can try both on GPU, or keep Whisper on CPU if VRAM is exceeded.
+        self.whisper_device = self.device
+        self.translator_device = self.device
         
         # Language Optimization: Specifically for Urdu/English mix (Pakistani English style)
         self.forced_language = None      # 'ur' or 'en' if you want to force it
@@ -36,8 +43,8 @@ class Orchestrator:
         
         # Initialize components
         try:
-            self.stt = SpeechToText(model_size=self.whisper_model_size, device=self.device, compute_type=self.compute_type)
-            self.translator = Translator(device=self.device)
+            self.stt = SpeechToText(model_size=self.whisper_model_size, device=self.whisper_device, compute_type=self.compute_type)
+            self.translator = Translator(device=self.translator_device)
         except Exception as e:
             print(f"\nInitialization failed: {e}")
             sys.exit(1)

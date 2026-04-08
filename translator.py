@@ -28,15 +28,23 @@ class Translator:
         token_arg = hf_token if hf_token else False
         
         print(f"Loading translation model: {model_name} on {device}...")
-        self.device = 0 if (device == "cuda" and torch.cuda.is_available()) else -1
+        self.device = torch.device("cuda" if (device == "cuda" and torch.cuda.is_available()) else "cpu")
         
         # First attempt: load with local_files_only=True to prioritize cached models
         # and avoid checking the Hub (this is faster and more reliable if pre-downloaded).
         try:
             print(f"Checking for model in local directory: {nllb_dir}")
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True, cache_dir=nllb_dir)
-            self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name, local_files_only=True, cache_dir=nllb_dir)
-            print("Translation model loaded from local directory.")
+            
+            # Using torch_dtype=torch.float16 if on GPU to save VRAM on 930 MX (2GB)
+            dtype = torch.float16 if self.device.type == "cuda" else torch.float32
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(
+                model_name, 
+                local_files_only=True, 
+                cache_dir=nllb_dir,
+                torch_dtype=dtype
+            ).to(self.device)
+            print(f"Translation model loaded from local directory on {self.device}.")
         except Exception:
             print("Model not found locally. Attempting to download from HF Hub...")
             # Re-enable info logging temporarily to see download progress
@@ -46,8 +54,14 @@ class Translator:
             tf_logging.set_verbosity_info()
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(model_name, token=token_arg, cache_dir=nllb_dir)
-                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name, token=token_arg, cache_dir=nllb_dir)
-                print("Translation model downloaded and loaded successfully.")
+                dtype = torch.float16 if self.device.type == "cuda" else torch.float32
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(
+                    model_name, 
+                    token=token_arg, 
+                    cache_dir=nllb_dir,
+                    torch_dtype=dtype
+                ).to(self.device)
+                print(f"Translation model downloaded and loaded successfully on {self.device}.")
             except Exception as e:
                 print(f"Critical Error: Failed to load translation model: {e}")
                 print("Initial runs require an internet connection to download models.")
@@ -88,7 +102,7 @@ class Translator:
 
         try:
             # 1. Tokenize input text
-            inputs = self.tokenizer(text, return_tensors="pt").to(self.model.device)
+            inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
             
             # 2. Generate translated IDs. NLLB uses the target language code as 
             # the beginning of the forced BOS token.
