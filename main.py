@@ -115,7 +115,7 @@ class Orchestrator:
                 
                 # Pre-check for silence to avoid sending empty/noisy audio to Whisper
                 rms = np.sqrt(np.mean(audio_data**2))
-                if rms < 0.012:  # Re-increased from 0.008 to 0.012 to filter more ambient noise
+                if rms < 0.007:  # Lowered from 0.012 to 0.007 to increase capture sensitivity
                     if len(audio_buffer) > chunks_per_second * 2: # Clear if silent for > 2s
                          audio_buffer = []
                     time.sleep(0.1)
@@ -139,7 +139,7 @@ class Orchestrator:
                 if text.lower().strip() in hallucination_phrases or len(text.strip()) <= 1:
                     # If the text is just a common hallucination or too short (like single letters),
                     # we check the RMS again.
-                    if rms < 0.025: # More aggressive filtering for low-volume background noise
+                    if rms < 0.015: # Lowered from 0.025 to 0.015 to allow quieter real greetings
                         text = ""
                 
                 if text and text != last_text:

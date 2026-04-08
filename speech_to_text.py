@@ -65,12 +65,12 @@ class SpeechToText:
             language=language,
             initial_prompt=prompt,
             vad_filter=True,
-            no_speech_threshold=0.8, # Stricter filtering
+            no_speech_threshold=0.6, # Lowered from 0.8 to 0.6 to increase capture sensitivity
             log_prob_threshold=-1.0, 
             vad_parameters=dict(
                 min_silence_duration_ms=1000, # Longer silence required to stop segment
-                threshold=0.6, # More selective of speech
-                min_speech_duration_ms=300, # Ignore even longer noise bursts
+                threshold=0.45, # Lowered from 0.6 to 0.45 to better detect speech
+                min_speech_duration_ms=200, # Lowered from 300 to 200 to capture shorter speech
                 speech_pad_ms=300
             )
         )
