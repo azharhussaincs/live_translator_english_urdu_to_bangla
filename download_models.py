@@ -29,9 +29,9 @@ def download_models():
 
     try:
         from faster_whisper.utils import download_model
-        print("\n[1/2] Downloading Whisper (STT) model: base (~150MB)...")
+        print("\n[1/2] Downloading Whisper (STT) model: tiny (~150MB)...")
         # Explicitly passing use_auth_token=False to suppress unauthenticated requests warning
-        download_model("base", output_dir=whisper_dir, local_files_only=False, use_auth_token=False)
+        download_model("tiny", output_dir=whisper_dir, local_files_only=False, use_auth_token=False)
         print(f"Whisper model downloaded and cached in {whisper_dir}")
     except Exception as e:
         print(f"Error downloading Whisper model: {e}")
